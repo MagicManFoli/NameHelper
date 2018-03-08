@@ -13,6 +13,7 @@ from PyPDF2 import PdfFileReader as Reader
 
 # TODO: PDFMiner3k as better text extraction?
 
+
 # ------------ Funktions -----------------
 
 
@@ -33,10 +34,11 @@ def user_input():
     return file_list
 
 
+# noinspection PyUnresolvedReferences
 def gen_title(pdf):
     # lucky, easy correction if wanted
     if pdf.documentInfo.title:
-        temp_title = pdf.documentInfo.title
+        temp_title = str(pdf.documentInfo.title).strip()
         print("Embedded title found: {}".format(temp_title))
         prompt = input("Use it to rename? [Y, N]\n>")
         if prompt.upper() == "Y":
@@ -45,10 +47,15 @@ def gen_title(pdf):
     # manual (human) parsing needed
     title = pdf.getPage(1).extractText().replace("\n", " ").strip()  # get cleaned title page
 
-    print("current: {}: \nparsed frontpage-text:\n{}".format(book, title))
-    title = input("Input new file name if desired, leave blank if not:\n>")
+    print("parsed frontpage-text:\n{}".format(title))
+    title = input("Input new file name if desired, X to mark, leave blank to skip:\n>")
+
+    title.replace(":", "").strip()  # TODO: Add better char correction
 
     if title:
+        if title == "X":
+            gen_title.counter += 1
+            title = "Z_{}".format(gen_title.counter)
         return title, "manual"
     else:
         print("Skipping file")
@@ -57,28 +64,46 @@ def gen_title(pdf):
 
 # --------------------- Main ----------------------
 
-pdf_list = user_input()
+def main():
+    counter = {"auto": 0, "manual": 0, "skipped": 0}
 
-counter = {"auto": 0, "manual": 0, "skipped": 0}
+    pdf_list = user_input()
 
-# iterate through list of titles
-for file in pdf_list:
-    pdf = Reader(file, strict=True)
+    try:
+        # iterate through list of titles
+        for file in pdf_list:
+            pdf = Reader(file, strict=True)
 
-    p = Path(file)
-    book = p.stem
-    base_path = p.parent
+            p = Path(file)
+            file_name = p.stem
+            base_path = p.parent
 
-    new_name, type_ = gen_title(pdf)
+            print("current PDF: {}".format(file_name))
 
-    counter[type_] += 1
+            gen_title.counter = 0  # TODO: check existing files to get current/start counter value
+            new_name, type_ = gen_title(pdf)
 
-    if not new_name:
-        continue
+            counter[type_] += 1
 
-    new_file = str(base_path.joinpath(new_name + ".pdf"))
-    os.rename(file, new_file)
-    print("file {} has been renamed to {}".format(file, new_file))
+            if not new_name:
+                continue
 
-print("Done!\n Auto:    {:2}\n Manual:  {:2}\n Skipped: {:2}"
-      .format(counter["auto"], counter["manual"], counter["skipped"]))
+            new_file = str(base_path.joinpath(new_name + ".pdf"))
+            os.rename(file, new_file)
+            print("file {} has been renamed to {}".format(file, new_file))
+    except Exception as e:
+        print("An Error occured:\n{}".format(e))
+
+    print("Done!\n Auto:    {:2}\n Manual:  {:2}\n Skipped: {:2}"
+          .format(counter["auto"], counter["manual"], counter["skipped"]))
+
+    input("Press Enter to continue...\n")
+
+
+# end of main
+
+
+if __name__ == "__main__":
+    main()
+
+    # done
