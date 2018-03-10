@@ -14,7 +14,7 @@ from PyPDF2 import PdfFileReader as Reader
 # TODO: PDFMiner3k as better text extraction?
 
 
-# ------------ Funktions -----------------
+# ------------ Functions -----------------
 
 
 def user_input():
@@ -92,7 +92,7 @@ def main():
             os.rename(file, new_file)
             print("file {} has been renamed to {}".format(file, new_file))
     except Exception as e:
-        print("An Error occured:\n{}".format(e))
+        print("An Error occurred:\n{}".format(e))
 
     print("Done!\n Auto:    {:2}\n Manual:  {:2}\n Skipped: {:2}"
           .format(counter["auto"], counter["manual"], counter["skipped"]))
