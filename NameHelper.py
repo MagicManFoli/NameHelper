@@ -5,19 +5,17 @@
 
 
 import glob
-import os
+import shutil
 from pathlib import Path
 
 from PyPDF2 import PdfFileReader as Reader
-
-
-# TODO: PDFMiner3k as better text extraction?
 
 
 # ------------ Functions -----------------
 
 
 def user_input():
+    """encapsulates file selection"""
     while True:
         folder_path = input("Input path to book folder:\n>")
 
@@ -25,7 +23,7 @@ def user_input():
             print("Goodbye")
             exit(0)
 
-        file_list = glob.glob(folder_path + "\\*.pdf")
+        file_list = glob.glob(folder_path + "\\*.pdf")  # TODO: check if non-recursive
 
         if not file_list:  # empty lists are "False"
             print("no PDFs in that directory, try again")
@@ -35,44 +33,51 @@ def user_input():
 
 
 # noinspection PyUnresolvedReferences
-def gen_title(pdf):
+def gen_title(file):
+    """used to get a valid title by all means, categorises"""
+
+    pdf = Reader(file, strict=True)
+
     # lucky, easy correction if wanted
     if pdf.documentInfo.title:
-        temp_title = str(pdf.documentInfo.title).strip()
-        print("Embedded title found: {}".format(temp_title))
+        emb_title = str(pdf.documentInfo.title).strip()
+        print("Embedded title found: {}".format(emb_title))
         prompt = input("Use it to rename? [Y, N]\n>")
         if prompt.upper() == "Y":
-            return temp_title, "auto"
+            return emb_title, "auto"
 
     # manual (human) parsing needed
-    title = pdf.getPage(1).extractText().replace("\n", " ").strip()  # get cleaned title page
+    parsed_title = pdf.getPage(1).extractText().replace("\n", " ").strip()  # get cleaned title page
 
-    print("parsed frontpage-text:\n{}".format(title))
+    # TODO: better commands, add option to cancel
+    print("parsed frontpage-text:\n{}".format(parsed_title))
     title = input("Input new file name if desired, X to mark, leave blank to skip:\n>")
 
-    title.replace(":", "").strip()  # TODO: Add better char correction
+    title = title.replace(":", "").strip()  # TODO: Add more char corrections "\/.
 
+    # dictionary-comparison with default as title?
+    # TODO: better evaluation?
     if title:
-        if title == "X":
-            gen_title.counter += 1
-            title = "Z_{}".format(gen_title.counter)
-        return title, "manual"
-    else:
+        if title == "X":  # marked
+            return Path(file).stem, "marked"
+        else:  # new title
+            return title, "manual"
+    else:  # skipped
         print("Skipping file")
-        return None, "skipped"
+        return Path(file).stem, "skipped"
 
 
 # --------------------- Main ----------------------
 
 def main():
-    counter = {"auto": 0, "manual": 0, "skipped": 0}
+    counter = {"auto": 0, "manual": 0, "marked": 0, "skipped": 0}
 
+    # list of files in user selected dir
     pdf_list = user_input()
 
     try:
         # iterate through list of titles
         for file in pdf_list:
-            pdf = Reader(file, strict=True)
 
             p = Path(file)
             file_name = p.stem
@@ -80,23 +85,37 @@ def main():
 
             print("current PDF: {}".format(file_name))
 
-            gen_title.counter = 0  # TODO: check existing files to get current/start counter value
-            new_name, type_ = gen_title(pdf)
+            # new or None
+            gen_name, type_ = gen_title(file)
 
             counter[type_] += 1
 
-            if not new_name:
-                continue
+            # TODO: move files to new folders
 
-            new_file = str(base_path.joinpath(new_name + ".pdf"))
-            os.rename(file, new_file)
-            print("file {} has been renamed to {}".format(file, new_file))
+            # create dir to move file into
+            move_path = base_path.joinpath(type_)
+            Path(move_path).mkdir(parents=True, exist_ok=True)
+
+            # append new name to change to if necessary
+            if gen_name != file_name:
+                move_path = str(move_path.joinpath(gen_name + ".pdf"))
+
+            # TODO: check if file exists, if yes: append (2)
+            # Path .exists?
+
+            # move or move + rename
+            processed_name = shutil.move(file, move_path)
+
+            print("file {} is now {}\n".format(file, processed_name))
+
+    # generic catch to reformat exceptions for console output
     except Exception as e:
-        print("An Error occurred:\n{}".format(e))
+        print("An Error occurred:\n{}\n\n".format(e))  # TODO: Add (shortened) traceback
 
-    print("Done!\n Auto:    {:2}\n Manual:  {:2}\n Skipped: {:2}"
-          .format(counter["auto"], counter["manual"], counter["skipped"]))
+    print("Done!\n Auto:    {:2}\n Manual:  {:2}\n Marked:  {:2}\n Skipped: {:2}"
+          .format(counter["auto"], counter["manual"], counter["marked"], counter["skipped"]))
 
+    # prevent cmd to exit prematurely
     input("Press Enter to continue...\n")
 
 
