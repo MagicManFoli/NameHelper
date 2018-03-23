@@ -97,11 +97,17 @@ def main():
             Path(move_path).mkdir(parents=True, exist_ok=True)
 
             # append new name to change to if necessary
-            if gen_name != file_name:
-                move_path = str(move_path.joinpath(gen_name + ".pdf"))
+            # if gen_name != file_name:
+            move_path = move_path.joinpath(gen_name + ".pdf")
 
             # TODO: check if file exists, if yes: append (2)
             # Path .exists?
+            while move_path.exists():
+                print("File {} already exists".format(move_path))
+                move_path = move_path.parent / (move_path.stem + "_" + move_path.suffix)
+
+            # if not Path(move_path):
+            #     raise FileNotFoundError("File {} not found".format(move_path))
 
             # move or move + rename
             processed_name = shutil.move(file, move_path)
